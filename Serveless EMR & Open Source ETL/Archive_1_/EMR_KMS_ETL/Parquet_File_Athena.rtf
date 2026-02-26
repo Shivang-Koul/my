@@ -1,0 +1,57 @@
+
+AWS Athena – A serverless query service that allows you to run SQL queries directly on Parquet files stored in S3
+Set Up Athena
+	•	Sign in to the AWS Management Console.
+	•	Navigate to Amazon Athena.
+	•	Ensure your data is stored in Amazon S3 and cataloged in AWS Glue.
+CREATE DATABASE etl_database;
+CREATE EXTERNAL TABLE etl_table (
+    id INT,
+    name STRING,
+    age INT
+)
+STORED AS PARQUET
+LOCATION 's3://your-bucket/path/';
+SELECT * FROM etl_table WHERE age > 30;
+SELECT name, COUNT(*) FROM etl_table GROUP BY name;
+View Query Results
+	•	Athena stores query results in S3.
+	•	You can download results or integrate with AWS QuickSight for visualization.
+
+DuckDB – A lightweight database that supports querying Parquet files in S3 using SQL. You can use commands like:
+
+INSTALL httpfs;
+LOAD httpfs;
+SET s3_region='your-region';
+SET s3_access_key_id='your-access-key';
+SET s3_secret_access_key='your-secret-key';
+SELECT * FROM read_parquet('s3://your-bucket/your-file.parquet');
+
+Pandas & PyArrow – You can use Python libraries like Pandas and PyArrow to read and write Parquet files in S3.
+
+import s3fs
+import pandas as pd
+
+fs = s3fs.S3FileSystem(anon=False)
+df = pd.read_parquet('s3://your-bucket/your-file.parquet', storage_options={'s3fs': fs})
+print(df.head())
+
+
+
+
+The Spark ETL job successfully processed the NYC taxi trip data, performing several transformations:
+	◦	Schema Definition: The output shows 20 columns including the original taxi data fields (like VendorID, pickup/dropoff times, fare details) plus a new current_date timestamp column added by the transformation.
+	◦	Data Sample: The first 20 rows of the transformed dataset are displayed, showing:
+	▪	Trip details from January 1, 2017.
+	▪	Various fare components (base fare, taxes, tips, tolls).
+	▪	Location IDs for pickup and dropoff points.
+	▪	A newly added current_date field showing the processing timestamp (current date and time).
+
+
+This transformation makes the data more analytics-friendly by:
+	▪	Adding a processing timestamp for audit purposes.
+	▪	Converting to Parquet format for better compression and query performance.
+	▪	Maintaining data types (integers, doubles, strings) for optimal storage and analysis.
+
+
+

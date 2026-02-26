@@ -1,0 +1,361 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww18480\viewh11320\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 #!/bin/bash\
+\
+# ================================================================\
+# EMR Bootstrap Actions for Performance Optimization\
+# Store this script in S3 in the same region as your EMR cluster\
+# ================================================================\
+\
+# 1. SYSTEM OPTIMIZATION BOOTSTRAP\
+cat > /tmp/system-optimization.sh << 'EOF'\
+#!/bin/bash\
+\
+# Increase file descriptor limits\
+echo "* soft nofile 65536" >> /etc/security/limits.conf\
+echo "* hard nofile 65536" >> /etc/security/limits.conf\
+echo "root soft nofile 65536" >> /etc/security/limits.conf\
+echo "root hard nofile 65536" >> /etc/security/limits.conf\
+\
+# Optimize kernel parameters\
+echo "vm.swappiness = 1" >> /etc/sysctl.conf\
+echo "vm.dirty_ratio = 15" >> /etc/sysctl.conf\
+echo "vm.dirty_background_ratio = 5" >> /etc/sysctl.conf\
+echo "net.core.somaxconn = 32768" >> /etc/sysctl.conf\
+echo "net.core.netdev_max_backlog = 5000" >> /etc/sysctl.conf\
+\
+# Apply sysctl changes\
+sysctl -p\
+\
+# Disable transparent huge pages (can cause performance issues)\
+echo never > /sys/kernel/mm/transparent_hugepage/enabled\
+echo never > /sys/kernel/mm/transparent_hugepage/defrag\
+\
+# Make the setting persistent\
+echo 'echo never > /sys/kernel/mm/transparent_hugepage/enabled' >> /etc/rc.local\
+echo 'echo never > /sys/kernel/mm/transparent_hugepage/defrag' >> /etc/rc.local\
+\
+echo "System optimization completed"\
+EOF\
+\
+# 2. HIVE PERFORMANCE OPTIMIZATION\
+cat > /tmp/hive-optimization.sh << 'EOF'\
+#!/bin/bash\
+\
+# Wait for Hive to be available\
+while [ ! -f /etc/hive/conf/hive-site.xml ]; do\
+    sleep 10\
+done\
+\
+# Backup original config\
+cp /etc/hive/conf/hive-site.xml /etc/hive/conf/hive-site.xml.backup\
+\
+# Add performance optimizations to hive-site.xml\
+cat >> /etc/hive/conf/hive-site.xml << 'HIVE_EOF'\
+<!-- Performance Optimizations -->\
+<property>\
+    <name>hive.exec.dynamic.partition</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>hive.exec.dynamic.partition.mode</name>\
+    <value>nonstrict</value>\
+</property>\
+<property>\
+    <name>hive.exec.max.dynamic.partitions</name>\
+    <value>10000</value>\
+</property>\
+<property>\
+    <name>hive.exec.max.dynamic.partitions.pernode</name>\
+    <value>2000</value>\
+</property>\
+<property>\
+    <name>hive.optimize.sort.dynamic.partition</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>hive.auto.convert.join</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>hive.auto.convert.join.noconditionaltask.size</name>\
+    <value>268435456</value>\
+</property>\
+<property>\
+    <name>hive.optimize.bucketmapjoin</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>hive.optimize.bucketmapjoin.sortedmerge</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>hive.vectorized.execution.enabled</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>hive.vectorized.execution.reduce.enabled</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>hive.cbo.enable</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>hive.compute.query.using.stats</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>hive.stats.fetch.column.stats</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>hive.stats.fetch.partition.stats</name>\
+    <value>true</value>\
+</property>\
+HIVE_EOF\
+\
+echo "Hive optimization completed"\
+EOF\
+\
+# 3. TEZ CONFIGURATION OPTIMIZATION\
+cat > /tmp/tez-optimization.sh << 'EOF'\
+#!/bin/bash\
+\
+# Wait for Tez to be available\
+while [ ! -f /etc/tez/conf/tez-site.xml ]; do\
+    sleep 10\
+done\
+\
+# Backup original config\
+cp /etc/tez/conf/tez-site.xml /etc/tez/conf/tez-site.xml.backup\
+\
+# Get instance memory info\
+TOTAL_MEM=$(grep MemTotal /proc/meminfo | awk '\{print int($2/1024)\}')\
+TEZ_CONTAINER_SIZE=$((TOTAL_MEM / 8))\
+TEZ_JAVA_OPTS="-Xmx$((TEZ_CONTAINER_SIZE * 80 / 100))m"\
+\
+# Add Tez optimizations\
+cat >> /etc/tez/conf/tez-site.xml << TEZ_EOF\
+<!-- Tez Performance Optimizations -->\
+<property>\
+    <name>tez.am.resource.memory.mb</name>\
+    <value>$TEZ_CONTAINER_SIZE</value>\
+</property>\
+<property>\
+    <name>tez.am.java.opts</name>\
+    <value>$TEZ_JAVA_OPTS</value>\
+</property>\
+<property>\
+    <name>tez.task.resource.memory.mb</name>\
+    <value>$TEZ_CONTAINER_SIZE</value>\
+</property>\
+<property>\
+    <name>tez.runtime.io.sort.mb</name>\
+    <value>$((TEZ_CONTAINER_SIZE / 4))</value>\
+</property>\
+<property>\
+    <name>tez.runtime.unordered.output.buffer.size-mb</name>\
+    <value>$((TEZ_CONTAINER_SIZE / 8))</value>\
+</property>\
+<property>\
+    <name>tez.grouping.min-size</name>\
+    <value>67108864</value>\
+</property>\
+<property>\
+    <name>tez.grouping.max-size</name>\
+    <value>1073741824</value>\
+</property>\
+<property>\
+    <name>tez.am.container.reuse.enabled</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>tez.am.container.reuse.rack-fallback.enabled</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>tez.am.container.reuse.non-local-fallback.enabled</name>\
+    <value>true</value>\
+</property>\
+TEZ_EOF\
+\
+echo "Tez optimization completed"\
+EOF\
+\
+# 4. HADOOP/YARN OPTIMIZATION\
+cat > /tmp/hadoop-optimization.sh << 'EOF'\
+#!/bin/bash\
+\
+# Wait for Hadoop configs to be available\
+while [ ! -f /etc/hadoop/conf/yarn-site.xml ]; do\
+    sleep 10\
+done\
+\
+# Get system information\
+TOTAL_MEM=$(grep MemTotal /proc/meminfo | awk '\{print int($2/1024)\}')\
+CPU_CORES=$(nproc)\
+\
+# Calculate optimal YARN settings\
+YARN_MEM=$((TOTAL_MEM - 1024))  # Reserve 1GB for system\
+CONTAINER_SIZE=$((YARN_MEM / CPU_CORES))\
+MAP_MEMORY=$CONTAINER_SIZE\
+REDUCE_MEMORY=$((CONTAINER_SIZE * 2))\
+\
+# Backup original configs\
+cp /etc/hadoop/conf/yarn-site.xml /etc/hadoop/conf/yarn-site.xml.backup\
+cp /etc/hadoop/conf/mapred-site.xml /etc/hadoop/conf/mapred-site.xml.backup\
+\
+# Update yarn-site.xml\
+sudo -u hadoop hadoop-daemon.sh stop resourcemanager || true\
+sudo -u hadoop hadoop-daemon.sh stop nodemanager || true\
+\
+# Add to yarn-site.xml\
+cat >> /etc/hadoop/conf/yarn-site.xml << YARN_EOF\
+<!-- YARN Performance Optimizations -->\
+<property>\
+    <name>yarn.nodemanager.resource.memory-mb</name>\
+    <value>$YARN_MEM</value>\
+</property>\
+<property>\
+    <name>yarn.scheduler.maximum-allocation-mb</name>\
+    <value>$YARN_MEM</value>\
+</property>\
+<property>\
+    <name>yarn.scheduler.minimum-allocation-mb</name>\
+    <value>256</value>\
+</property>\
+<property>\
+    <name>yarn.nodemanager.vmem-check-enabled</name>\
+    <value>false</value>\
+</property>\
+<property>\
+    <name>yarn.nodemanager.pmem-check-enabled</name>\
+    <value>false</value>\
+</property>\
+<property>\
+    <name>yarn.nodemanager.resource.cpu-vcores</name>\
+    <value>$CPU_CORES</value>\
+</property>\
+YARN_EOF\
+\
+# Update mapred-site.xml\
+cat >> /etc/hadoop/conf/mapred-site.xml << MAPRED_EOF\
+<!-- MapReduce Performance Optimizations -->\
+<property>\
+    <name>mapreduce.map.memory.mb</name>\
+    <value>$MAP_MEMORY</value>\
+</property>\
+<property>\
+    <name>mapreduce.reduce.memory.mb</name>\
+    <value>$REDUCE_MEMORY</value>\
+</property>\
+<property>\
+    <name>mapreduce.map.java.opts</name>\
+    <value>-Xmx$((MAP_MEMORY * 80 / 100))m</value>\
+</property>\
+<property>\
+    <name>mapreduce.reduce.java.opts</name>\
+    <value>-Xmx$((REDUCE_MEMORY * 80 / 100))m</value>\
+</property>\
+<property>\
+    <name>mapreduce.task.io.sort.mb</name>\
+    <value>$((MAP_MEMORY / 4))</value>\
+</property>\
+<property>\
+    <name>mapreduce.map.sort.spill.percent</name>\
+    <value>0.8</value>\
+</property>\
+<property>\
+    <name>mapreduce.reduce.shuffle.parallelcopies</name>\
+    <value>20</value>\
+</property>\
+<property>\
+    <name>mapreduce.output.fileoutputformat.compress</name>\
+    <value>true</value>\
+</property>\
+<property>\
+    <name>mapreduce.output.fileoutputformat.compress.codec</name>\
+    <value>org.apache.hadoop.io.compress.SnappyCodec</value>\
+</property>\
+MAPRED_EOF\
+\
+echo "Hadoop/YARN optimization completed"\
+EOF\
+\
+# 5. MONITORING AND LOGGING SETUP\
+cat > /tmp/monitoring-setup.sh << 'EOF'\
+#!/bin/bash\
+\
+# Install additional monitoring tools\
+yum update -y\
+yum install -y htop iotop dstat\
+\
+# Configure log retention\
+echo "# Custom log retention settings" >> /etc/logrotate.conf\
+echo "/var/log/hadoop*/*.log \{" >> /etc/logrotate.conf\
+echo "    daily" >> /etc/logrotate.conf\
+echo "    missingok" >> /etc/logrotate.conf\
+echo "    rotate 7" >> /etc/logrotate.conf\
+echo "    compress" >> /etc/logrotate.conf\
+echo "    delaycompress" >> /etc/logrotate.conf\
+echo "    copytruncate" >> /etc/logrotate.conf\
+echo "\}" >> /etc/logrotate.conf\
+\
+# Create performance monitoring script\
+cat > /usr/local/bin/emr-perf-monitor.sh << 'MONITOR_EOF'\
+#!/bin/bash\
+# Simple performance monitoring script\
+while true; do\
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')\
+    cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '\{print $2\}' | sed 's/%us,//')\
+    memory_usage=$(free | grep Mem | awk '\{printf "%.2f", $3/$2 * 100.0\}')\
+    disk_usage=$(df -h / | awk 'NR==2 \{print $5\}' | sed 's/%//')\
+    \
+    echo "$timestamp,CPU:$\{cpu_usage\}%,Memory:$\{memory_usage\}%,Disk:$\{disk_usage\}%" >> /tmp/emr-performance.log\
+    sleep 60\
+done\
+MONITOR_EOF\
+\
+chmod +x /usr/local/bin/emr-perf-monitor.sh\
+# Start monitoring in background\
+nohup /usr/local/bin/emr-perf-monitor.sh &\
+\
+echo "Monitoring setup completed"\
+EOF\
+\
+# 6. MAIN BOOTSTRAP EXECUTION\
+echo "Starting EMR Performance Bootstrap Actions..."\
+\
+# Make scripts executable\
+chmod +x /tmp/*.sh\
+\
+# Execute optimization scripts\
+echo "Running system optimization..."\
+bash /tmp/system-optimization.sh\
+\
+echo "Running Hadoop/YARN optimization..."\
+bash /tmp/hadoop-optimization.sh\
+\
+echo "Setting up monitoring..."\
+bash /tmp/monitoring-setup.sh\
+\
+# These will run after services start\
+echo "Scheduling Hive and Tez optimizations..."\
+(\
+    sleep 120  # Wait for services to start\
+    bash /tmp/hive-optimization.sh\
+    bash /tmp/tez-optimization.sh\
+) &\
+\
+echo "Bootstrap actions completed successfully!"\
+\
+# Optional: Send completion notification to CloudWatch\
+aws logs create-log-group --log-group-name /emr/bootstrap --region $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/.$//')\
+aws logs create-log-stream --log-group-name /emr/bootstrap --log-stream-name $(hostname) --region $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/.$//')\
+aws logs put-log-events --log-group-name /emr/bootstrap --log-stream-name $(hostname) --log-events timestamp=$(date +%s)000,message="Bootstrap completed successfully on $(hostname)" --region $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed 's/.$//')}

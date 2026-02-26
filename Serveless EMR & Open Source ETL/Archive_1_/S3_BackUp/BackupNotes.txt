@@ -1,0 +1,66 @@
+AWS CLI Configuration:
+
+ aws configure
+aws configure --profile backup_user
+
+Required IAM Permissions:
+Ensure your AWS user has these permissions: json
+
+
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::cloudage.llc",
+                "arn:aws:s3:::cloudage.llc/*"
+            ]
+        }
+    ]
+}
+
+chmod +x ~/s3_backup.sh
+
+Set up the cron job:
+
+
+bash$ crontab -e
+#Add this line to run every hour:
+0 * * * * /bin/bash /Users/cloudageglobal/s3_backup.sh
+
+bash$ crontab -e
+# Weekly on Sundays at 3 AM
+0 3 * * 0 /bin/bash /Users/cloudageglobal/s3_backup.sh
+"At 3:00 AM every Sunday"
+
+Breaking it down:
+
+0 - Minute 0 (on the hour)
+3 - Hour 3 (3 AM)
+* - Every day of the month
+* - Every month
+0 - Sunday (0 is Sunday in cron, some systems use 7)
+So 0 3 * * 0 will run the specified command at exactly 3:00 AM every Sunday morning.
+
+This is commonly used for weekly maintenance tasks like:
+
+Weekly backups
+System updates
+Database maintenance
+Log rotation
+Report generation
+
+cat ~/s3_backup.log
+
+aws s3 ls s3://cloudage.llc/backup --recursive
+
+
+

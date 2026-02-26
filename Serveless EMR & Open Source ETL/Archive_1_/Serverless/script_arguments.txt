@@ -1,0 +1,167 @@
+["s3://[YOUR_S3BUCKET_NAME]/input/dataset_en_dev.json",
+ "s3://[YOUR_S3BUCKET_NAME]/output/reviews/reviews_by_productcategory/",
+"s3://[YOUR_S3BUCKET_NAME]/output/reviews/productcategory_topreview/"]
+
+
+["s3://cloudage.llc/dataset/dataset_en_dev.json",
+ "s3://cloudage.llc/output/reviews/reviews_by_productcategory/",
+"s3://cloudage.llc/output/reviews/productcategory_topreview/"]
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+CREATE EXTERNAL TABLE raw_reviews (
+  review_id STRING,
+  product_id STRING,
+  reviewer_id STRING,
+  stars STRING,
+  review_body STRING,
+  review_title STRING,
+  language STRING,
+  product_category STRING
+)
+ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
+WITH SERDEPROPERTIES (
+  'ignore.malformed.json' = 'true',
+  'dots.in.keys' = 'false',
+  'case.insensitive' = 'true'
+)
+STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat'
+OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
+LOCATION 's3://clouderarepository/dataset/'
+TBLPROPERTIES (
+  'has_encrypted_data'='false',
+  'classification'='json'
+);
+
+SELECT * FROM raw_reviews LIMIT 10;
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+CREATE EXTERNAL TABLE product_category_review_counts (
+  product_category STRING,
+  number_of_reviews INT
+)
+STORED AS PARQUET
+LOCATION 's3://clouderarepository/output/reviews/productcategory_topreview/';
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+CREATE EXTERNAL TABLE product_category_star_ratings (
+  product_category STRING,
+  stars STRING,
+  number_of_reviews INT
+)
+STORED AS PARQUET
+LOCATION 's3://clouderarepository/output/reviews/reviews_by_productcategory/';
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+SELECT * 
+FROM product_category_review_counts
+ORDER BY number_of_reviews DESC
+LIMIT 10;
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+SELECT stars, number_of_reviews
+FROM product_category_star_ratings
+WHERE product_category = 'baby_product'
+ORDER BY stars;
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+SELECT 
+  r.product_category,
+  r.number_of_reviews AS total_reviews,
+  s.stars,
+  s.number_of_reviews AS star_count,
+  (s.number_of_reviews * 100.0 / r.number_of_reviews) AS percentage
+FROM product_category_review_counts r
+JOIN product_category_star_ratings s 
+  ON r.product_category = s.product_category
+ORDER BY r.number_of_reviews DESC, s.product_category, s.stars;
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+1. Average Rating per Product Category
+
+sql
+SELECT 
+  p.product_category,
+  ROUND(SUM(CASE WHEN s.stars = '1' THEN 1*s.number_of_reviews
+                 WHEN s.stars = '2' THEN 2*s.number_of_reviews
+                 WHEN s.stars = '3' THEN 3*s.number_of_reviews
+                 WHEN s.stars = '4' THEN 4*s.number_of_reviews
+                 WHEN s.stars = '5' THEN 5*s.number_of_reviews
+            END) / SUM(s.number_of_reviews), 2) AS avg_rating,
+  SUM(s.number_of_reviews) AS total_reviews
+FROM product_category_star_ratings s
+JOIN product_category_review_counts p 
+  ON s.product_category = p.product_category
+GROUP BY p.product_category
+ORDER BY avg_rating ASC;
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+2. Categories with Most 1-Star Reviews
+
+
+SELECT 
+  product_category,
+  number_of_reviews AS one_star_count
+FROM product_category_star_ratings
+WHERE stars = '1'
+ORDER BY one_star_count DESC
+LIMIT 10;
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+3. Top 10 Most Reviewed Product Categories (Not Individual Products)
+
+
+SELECT 
+  product_category,
+  number_of_reviews AS total_reviews
+FROM product_category_review_counts
+ORDER BY total_reviews DESC
+LIMIT 10;
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+4. Categories with Low Rating but High Review Count
+
+
+WITH category_ratings AS (
+  SELECT 
+    s.product_category,
+    SUM(s.number_of_reviews) AS total_reviews,
+    ROUND(SUM(CASE WHEN s.stars = '1' THEN 1*s.number_of_reviews
+                   WHEN s.stars = '2' THEN 2*s.number_of_reviews
+                   WHEN s.stars = '3' THEN 3*s.number_of_reviews
+                   WHEN s.stars = '4' THEN 4*s.number_of_reviews
+                   WHEN s.stars = '5' THEN 5*s.number_of_reviews
+              END) / SUM(s.number_of_reviews), 2) AS avg_rating
+  FROM product_category_star_ratings s
+  GROUP BY s.product_category
+)
+SELECT 
+  product_category,
+  total_reviews,
+  avg_rating
+FROM category_ratings
+WHERE total_reviews > 10 AND avg_rating < 2.5
+ORDER BY total_reviews DESC;
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+

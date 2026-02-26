@@ -1,0 +1,291 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2822
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 Verdana;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red0\green8\blue17;\red255\green255\blue255;
+}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c0\c2745\c8627;\cssrgb\c100000\c100000\c100000;
+}
+{\*\listtable{\list\listtemplateid1\listhybrid{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{decimal\}}{\leveltext\leveltemplateid1\'01\'00;}{\levelnumbers\'01;}\fi-360\li720\lin720 }{\listname ;}\listid1}
+{\list\listtemplateid2\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid101\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid2}
+{\list\listtemplateid3\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid201\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid3}
+{\list\listtemplateid4\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid301\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid4}
+{\list\listtemplateid5\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid401\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid5}
+{\list\listtemplateid6\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid501\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid6}}
+{\*\listoverridetable{\listoverride\listid1\listoverridecount0\ls1}{\listoverride\listid2\listoverridecount0\ls2}{\listoverride\listid3\listoverridecount0\ls3}{\listoverride\listid4\listoverridecount0\ls4}{\listoverride\listid5\listoverridecount0\ls5}{\listoverride\listid6\listoverridecount0\ls6}}
+\paperw11900\paperh16840\margl1440\margr1440\vieww38120\viewh11440\viewkind0
+\deftab720
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs48 \cf0 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 aws emr create-cluster \\\
+ --name "NgramGoogle" \\\
+ --release-label "emr-7.10.0" \\\
+ --service-role "arn:aws:iam::706769905020:role/service-role/AmazonEMR-ServiceRole-20250907T143152" \\\
+ --unhealthy-node-replacement \\\
+ --ec2-attributes '\{"InstanceProfile":"AmazonEMR-InstanceProfile-20250907T143132","EmrManagedMasterSecurityGroup":"sg-0432804ea7d5b57ec","EmrManagedSlaveSecurityGroup":"sg-026e17f99cd14a1ae","KeyName":"cluster-chavi","AdditionalMasterSecurityGroups":["sg-02475e8de27ce94cd"],"AdditionalSlaveSecurityGroups":["sg-02475e8de27ce94cd"],"SubnetIds":["subnet-04379619664c8c0f5"]\}' \\\
+ --tags 'for-use-with-amazon-emr-managed-policies=true' \\\
+ --applications Name=Hadoop Name=Hive Name=Hue Name=Pig Name=Tez \\\
+ --configurations '[\{"Classification":"hive-site","Properties":\{"hive.metastore.client.factory.class":"com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"\}\}]' \\\
+ --instance-groups '[\{"InstanceCount":1,"InstanceGroupType":"TASK","Name":"ephemeralStorage","InstanceType":"m5.xlarge","EbsConfiguration":\{"EbsBlockDeviceConfigs":[\{"VolumeSpecification":\{"VolumeType":"gp2","SizeInGB":32\},"VolumesPerInstance":2\}]\}\},\{"InstanceCount":1,"InstanceGroupType":"MASTER","Name":"Primary","InstanceType":"m5.xlarge","EbsConfiguration":\{"EbsBlockDeviceConfigs":[\{"VolumeSpecification":\{"VolumeType":"gp2","SizeInGB":32\},"VolumesPerInstance":2\}]\}\},\{"InstanceCount":1,"InstanceGroupType":"CORE","Name":"Core","InstanceType":"m5.xlarge","EbsConfiguration":\{"EbsBlockDeviceConfigs":[\{"VolumeSpecification":\{"VolumeType":"gp2","SizeInGB":32\},"VolumesPerInstance":2\}]\}\}]' \\\
+ --scale-down-behavior "TERMINATE_AT_TASK_COMPLETION" \\\
+ --auto-termination-policy '\{"IdleTimeout":3600\}' \\\
+ --region "us-east-1"\
+\
+\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97============================1!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\
+In AWS EMR (Elastic MapReduce), the cluster has three node types:\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa240\partightenfactor0
+\ls1\ilvl0\cf0 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	1	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Primary Node: Manages the cluster; runs YARN ResourceManager and HDFS NameNode; only one per cluster.\
+\ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	2	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Core Nodes: Run tasks and store data using HDFS; can scale horizontally; form the backbone of the cluster.\
+\ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	3	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Task Nodes: Run tasks only (no data storage); ideal for temporary compute scaling.\
+\ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	4	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Data stored on Core Nodes is persistent, while data on Task Nodes is ephemeral.\
+\ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	5	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Removing Task Nodes doesn't affect HDFS; removing Core Nodes does.\
+\pard\pardeftab720\sa280\partightenfactor0
+\cf3 \cb4 \outl0\strokewidth0 \
+\
+https://aws.amazon.com/datasets/google-books-ngrams/\
+https://books.google.com/ngrams\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 \cb1 plotting the usage of the word "telegram" from 1800 to 2000:\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa240\partightenfactor0
+\ls2\ilvl0\cf0 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+Smoothing = 0: You\'92ll see lots of spikes \'97 year-to-year variation.\
+\ls2\ilvl0\kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+Smoothing = 5: The line smooths out into a trend, easier to interpret.\
+\ls2\ilvl0\kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+Smoothing = 50: Most spikes are flattened out completely \'97 only very general trends are visible.\
+\pard\pardeftab720\sa280\partightenfactor0
+\cf3 \cb4 \
+https://storage.googleapis.com/books\cf0 \
+\cf3 aws s3 ls --no-sign-request s3://datasets.elasticmapreduce/ngrams/books/20090715/eng-all/\
+\
+(# Get EMR Cluster ID and export to the Environment.\
+export ID=$(aws emr list-clusters | jq '.Clusters[0].Id' | tr -d '"')\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa120\partightenfactor0
+\ls3\ilvl0\cf3 {\listtext	\uc0\u8226 	}This command retrieves the EMR cluster ID and saves it to a variable)\cb1 \
+\pard\pardeftab720\sa280\partightenfactor0
+\cf3 \cb4 \'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\
+(# Use the ID to get the PublicDNS name of the EMR Cluster \
+# and export to the Environment.\
+export HOST=$(aws emr describe-cluster --cluster-id $ID | jq '.Cluster.MasterPublicDnsName' | tr -d '"')\
+\pard\pardeftab720\partightenfactor0
+\cf3 This command gets the public DNS of the cluster.)\
+\pard\pardeftab720\sa280\partightenfactor0
+\cf3 \'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\
+(# SSH to the EMR cluster\
+ssh -i ~/Key.pem ec2-user@$HOST\
+\pard\pardeftab720\partightenfactor0
+\cf3 This command starts an SSH session with the EMR Cluster terminal.)\
+\
+\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97 \
+\
+CREATE EXTERNAL TABLE ngrams\
+(gram string, year int, occurrences bigint, pages bigint, books bigint)\
+ROW FORMAT DELIMITED FIELDS TERMINATED BY '\\t'\
+STORED AS SEQUENCEFILE\
+LOCATION 's3://datasets.elasticmapreduce/ngrams/books/20090715/eng-1M/1gram/';\
+\
+DESCRIBE ngrams;\
+\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa120\partightenfactor0
+\ls4\ilvl0\cf3 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+gram\'a0is the word (or set of words) in the n-gram\cb1 \
+\ls4\ilvl0\cb4 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+year\'a0is the year that the n-gram appeared in publication\cb1 \
+\ls4\ilvl0\cb4 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+occurrences\'a0is a count of the number of times the n-gram appeared in the given year\cb1 \
+\ls4\ilvl0\cb4 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+pages\'a0is the number of pages on which the n-gram appeared in the given year\cb1 \
+\ls4\ilvl0\cb4 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+books\'a0is the number of books in which the n-gram appeared in the given year\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf3 \cb4 \
+SELECT * FROM ngrams LIMIT 10;\
+\
+Unfortunately, it appears that the data in its current form is very raw. \
+The first column (gram) contains a mix of special characters,\
+ (for example\'a0#), text, uppercase, and lowercase characters. This makes it very difficult to analyze.\
+Data scientists frequently face similar\'a0data quality problems. Before they can analyze the data, it must first be\'a0normalized\'a0into a clean format.\
+\pard\pardeftab720\sa280\partightenfactor0
+\cf3 \
+\pard\pardeftab720\sa431\partightenfactor0
+\cf3 Normalize the Data\
+\pard\pardeftab720\sa280\partightenfactor0
+\cf3  cleanse the data. This process entails:\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa120\partightenfactor0
+\ls5\ilvl0\cf3 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+Excluding words under three characters long\cb1 \
+\ls5\ilvl0\cb4 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+Excluding words that contain non-alphabetical characters (but hyphens and apostrophes are acceptable)\cb1 \
+\ls5\ilvl0\cb4 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+Converting all characters to lowercase\cb1 \
+\pard\pardeftab720\partightenfactor0
+\cf3 \cb4 \
+\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\
+\
+\
+\
+First, you create a new table to store the results of the normalized data.\
+\
+CREATE TABLE normalized\
+(gram string, year int, occurrences bigint);\
+\
+\pard\pardeftab720\sa280\partightenfactor0
+\cf3 Next, you will SELECT the data from the\'a0ngrams\'a0table and then INSERT it into the new\'a0normalized\'a0table. The query will:\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa120\partightenfactor0
+\ls6\ilvl0\cf3 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+Only use data between 1990 and 2005\cb1 \
+\ls6\ilvl0\cb4 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+Convert the n-grams to lowercase\cb1 \
+\ls6\ilvl0\cb4 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+Only include words of three or more characters\cb1 \
+\ls6\ilvl0\cb4 \kerning1\expnd0\expndtw0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+Only include words that contain alphabetical characters, apostrophes and hyphens\
+\pard\tx720\pardeftab720\sa120\partightenfactor0
+\cf3 \cb1 \'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97 \
+\pard\pardeftab720\partightenfactor0
+\cf3 \cb4 \
+\pard\pardeftab720\sa280\partightenfactor0
+\cf3 INSERT OVERWRITE TABLE normalized\
+SELECT lower(gram), year, occurrences\
+FROM ngrams\
+WHERE year BETWEEN 1990 AND 2005\
+AND gram REGEXP "^[A-Za-z+\\'-]\{3,\}$";\
+\'97\'97\'97\'97\'97\'97\'97\'97This query will take a few minutes to complete. While it is running,\'a0Hive\'a0provides details about how many processes are executing on the\'a0Amazon EMR\'a0cluster.\'97\'97\'97\'97\'97\'97\
+\pard\pardeftab720\partightenfactor0
+\cf3 \
+\
+SELECT * FROM normalized LIMIT 20;\
+\
+\
+A data scientist would next be interested in viewing the most popular words in all books.\
+\
+\
+-- Display the 50 most-used words\
+SELECT\
+  gram,\
+  sum(occurrences) as total_occurrences\
+FROM normalized\
+GROUP BY gram\
+ORDER BY total_occurrences DESC\
+LIMIT 50;\
+\
+\'97\'97\'97These short words would be expected to appear often, but longer words are likely to be more interesting.\'97\'97\
+\
+-- Display the 50 most-used words longer than 10 characters\
+SELECT\
+  gram,\
+  sum(occurrences) as total_occurrences\
+FROM normalized\
+WHERE length(gram) > 10\
+GROUP BY gram\
+ORDER BY total_occurrences DESC\
+LIMIT 50;\
+\
+\'97\'97\'97Each of these queries is analyzing over 20 million records!\'97\'97\
+\
+A data scientist might now be interested in how word usage varies between years.\
+\
+(if the word\'a0cloud\'a0appears 10,000 times in one year and 13,000 times the next year,\
+ it is unclear whether this is because the word became more popular or whether more books were included in the database. \
+By calculating a\'a0ratio, it is possible to compare the\'a0relative frequency\'a0of a word compared to all other words in a given year.)\
+\
+CREATE TABLE ratios\
+(gram string, year int, occurrences bigint, ratio double);\
+\
+\pard\pardeftab720\sa280\partightenfactor0
+\cf3 This statement is using an\'a0inner join\'a0to calculate the ratio of word occurrences relative to all words used in the same year. \
+\pard\pardeftab720\partightenfactor0
+\cf3 \
+INSERT OVERWRITE TABLE ratios\
+SELECT\
+  a.gram,\
+  a.year,\
+  sum(a.occurrences) AS occurrences,\
+  sum(a.occurrences) / b.total AS ratio\
+FROM normalized a\
+JOIN (SELECT year, sum(occurrences) AS total\
+      FROM normalized\
+      GROUP BY year) b ON (a.year = b.year)\
+GROUP BY a.gram, a.year, b.total;\
+\
+\'97\'97\'97\'97\'97\'97\'97\'97takes approximately\'a0three minutes\'a0to execute\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\
+\
+\
+We are now able to query, for each year and word, the change in the ratio from the previous year. \
+This is done by joining the ratios table to itself to compare values between years.\
+\
+\
+-- Words that most increased in popularity each year\
+SELECT year, gram, occurrences, CONCAT(CAST(increase AS INT), 'x increase') as increase FROM\
+(\
+  SELECT\
+    y2.gram,\
+    y2.year,\
+    y2.occurrences,\
+    y2.ratio / y1.ratio as increase,\
+    rank() OVER (PARTITION BY y2.year ORDER BY y2.ratio / y1.ratio DESC) AS rank\
+  FROM ratios y2\
+  JOIN ratios y1 ON y1.gram = y2.gram and y2.year = y1.year + 1\
+  WHERE\
+      y2.year BETWEEN 1991 and 2005\
+  AND y1.occurrences > 1000\
+  AND y2.occurrences > 1000\
+) grams\
+WHERE rank = 1\
+ORDER BY year;\
+\
+\'97\'97\'97What word increased in popularity the most in 1999?\
+How about the increase in popularity of the word\'a0internet?\'97\'97\'97\'97\'97\
+\
+-- Occurrences of 'internet' in books by year?\
+SELECT\
+  year,\
+  occurrences\
+FROM ratios\
+WHERE gram = 'internet'\
+ORDER BY year;\
+\
+Internet use exploded around 1994/95 with the invention of the World Wide Web\'97though the Internet itself predates it by decades.\
+\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\'97\
+\
+\
+\'97\'97queries provide an idea of the capabilities of Amazon EMR and Hive to analyze massive quantities of data\'97\'97\'97\
+\
+-- Most popular words of each length\
+SELECT DISTINCT length, gram\
+FROM\
+(\
+  SELECT length(gram) AS length,\
+  gram,\
+  rank() OVER (partition by length(gram) order by occurrences desc) AS rank\
+  FROM ratios\
+) x\
+WHERE rank = 1\
+ORDER BY length;\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+\
+}

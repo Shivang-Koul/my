@@ -1,0 +1,17 @@
+This script is a simple PySpark ETL (Extract, Transform, Load) job. 
+Here’s what it does, step by step:
+
+		Takes two command-line arguments: the input CSV folder and the output folder.
+		Reads a CSV file (with headers and inferred schema) from the input folder.
+		Adds a new column called current_date with the current timestamp to each row.
+		Prints the schema and a sample of the data.
+		Prints the total number of records.
+		Writes the transformed data as Parquet files to the output folder, 
+    overwriting any existing data there.
+    
+In short:
+It reads a CSV, adds a timestamp column, and saves the result as Parquet.
+   
+
+
+  ["s3://cloudage.llc/input/", "s3://cloudage.llc/output/"]
