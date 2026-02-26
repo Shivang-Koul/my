@@ -1,0 +1,5 @@
+aws ec2 create-security-group --group-name "lOgAnalysis" --description "launch-wizard-1 created 2025-06-09T06:44:56.120Z" --vpc-id "vpc-0ade7b5bffc3045ba" 
+aws ec2 authorize-security-group-ingress --group-id "sg-preview-1" --ip-permissions '{"IpProtocol":"tcp","FromPort":22,"ToPort":22,"IpRanges":[{"CidrIp":"0.0.0.0/0"}]}' 
+aws ec2 run-instances --image-id "ami-0f535a71b34f2d44a" --instance-type "t3.small" --key-name "security" --user-data "IyEvYmluL2Jhc2gKZG5mIC15IHVwZGF0ZWF3cyBzMyBjcCBzMzovL2Nsb3VkYWdlZGF0YWJ1Y2tldGI3MWZiMmYzL3NlcnZlci5weSAvaG9tZS9lYzItdXNlcnB5dGhvbjMgL2hvbWUvZWMyLXVzZXIvc2VydmVyLnB5IC1wIDgwIC1yIGFwLXNvdXRoLTE=" --network-interfaces '{"SubnetId":"subnet-08430fd3144bd6af3","AssociatePublicIpAddress":true,"DeviceIndex":0,"Groups":["sg-preview-1"]}' --credit-specification '{"CpuCredits":"unlimited"}' --metadata-options '{"HttpEndpoint":"enabled","HttpPutResponseHopLimit":2,"HttpTokens":"required"}' --private-dns-name-options '{"HostnameType":"ip-name","EnableResourceNameDnsARecord":false,"EnableResourceNameDnsAAAARecord":false}' --count "1" 
+
+
