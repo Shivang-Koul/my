@@ -1,0 +1,99 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2865
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 Menlo-Bold;\f1\froman\fcharset0 Times-Roman;\f2\fnil\fcharset0 Menlo-Italic;
+\f3\fmodern\fcharset0 Courier;}
+{\colortbl;\red255\green255\blue255;\red255\green255\blue189;\red0\green0\blue0;\red255\green255\blue232;
+}
+{\*\expandedcolortbl;;\cssrgb\c100000\c100000\c78556;\cssrgb\c0\c0\c0;\cssrgb\c100000\c100000\c92610;
+}
+\paperw11900\paperh16840\margl1440\margr1440\vieww31740\viewh15340\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\qc\partightenfactor0
+
+\f0\b\fs72 \cf0 AWS CLI 
+\f1\b0\fs48 \expnd0\expndtw0\kerning0
+aws s3 rb s3://bucket --force
+\f0\b\fs72 \kerning1\expnd0\expndtw0 \
+\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f2\i\b0\fs36 \cf0 aws configure
+\f0\i0\b\fs72 \
+
+\fs28 Enter credentials 
+\fs72 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\qc\partightenfactor0
+\cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\fs60 \cf2 \expnd0\expndtw0\kerning0
+\ul \ulc3 List only buckets in us-east-1\cf0 \ulnone \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardeftab720\pardirnatural\partightenfactor0
+
+\f2\i\b0\fs52 \cf0 \kerning1\expnd0\expndtw0 ```bash
+\f3\i0\fs50 \expnd0\expndtw0\kerning0
+\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b\fs72 \cf0 \kerning1\expnd0\expndtw0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f2\i\b0\fs36 \cf0 aws s3api list-buckets --query "Buckets[].Name" --output text | tr '\\t' '\\n' | while read bucket; do\
+    region=$(aws s3api get-bucket-location --bucket "$bucket" --query "LocationConstraint" --output text)\
+    if [ "$region" = "None" ] || [ "$region" = "us-east-1" ]; then\
+        echo "$bucket"\
+    fi\
+done
+\fs52 \
+\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardeftab720\pardirnatural\partightenfactor0
+\cf0 ```\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\i0\b\fs60 \cf4 \ul \'97\'97\expnd0\expndtw0\kerning0
+delete all those specific SageMaker Studio buckets forcefully using AWS CLI \kerning1\expnd0\expndtw0 \ulnone \'97\'97\cf0 \expnd0\expndtw0\kerning0
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardeftab720\pardirnatural\partightenfactor0
+
+\f2\i\b0\fs52 \cf0 \kerning1\expnd0\expndtw0 ```bash
+\f1\i0\fs48 \expnd0\expndtw0\kerning0
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f2\i\fs52 \cf0 \kerning1\expnd0\expndtw0 \
+\
+
+\fs36 for bucket in bucketname; do\
+    echo "Deleting bucket: $bucket"\
+    aws s3 rb "s3://$bucket" --force\
+done
+\fs52 \
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardeftab720\pardirnatural\partightenfactor0
+\cf0 ```
+\f0\i0\b \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf0 \
+\pard\pardeftab720\partightenfactor0
+
+\fs60 \cf2 \expnd0\expndtw0\kerning0
+\ul Delete all those buckets recursively
+\f2\i\b0\fs52 \kerning1\expnd0\expndtw0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardeftab720\pardirnatural\partightenfactor0
+\cf0 \ulnone \
+```bash\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardeftab720\pardirnatural\partightenfactor0
+
+\fs36 \cf0 for bucket in $(aws s3api list-buckets --query "Buckets[].Name" --output text | tr '\\t' '\\n'); do\
+    region=$(aws s3api get-bucket-location --bucket "$bucket" --query "LocationConstraint" --output text)\
+    if [ "$region" = "ap-south-1" ]; then\
+        echo "Deleting bucket: $bucket in $region"\
+        aws s3 rb "s3://$bucket" --force\
+    fi\
+done
+\fs52 \
+\
+```}

@@ -1,0 +1,415 @@
+1. Create a new DynamoDB table with:
+	a. Table name: AudioPost
+	b. Partition key: id (String)
+	c. Table settings: Default settings
+	d. Choose Create table.
+id: The ID of the posted audio.
+status: UPDATED or PROCESSING, depending on whether an MP3 file has already been created.
+text: The post’s text, for which an audio file is being created.
+voice: The Amazon Polly voice that was used to create audio file.
+url: A link to an S3 bucket where an audio file is being stored.
+
+2. Create and S3 bucket and configure the following details:
+	a. Bucket name: audioposts ;
+	b. Under Object Ownership, choose ACLs enabled
+	c. Under Block Public Access settings for this bucket deselect the Block all public access option
+	d. Choose Create bucket
+
+3. Create An SNS topic and configure the following details:
+	a. Type: Choose Standard
+	b. Name: audiopost
+	c. Display name: New posts
+	d. Choose Create topic.
+
+4*. Create Lambda IAM Role, Name It: CloudAge-Lambda-Role
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "polly:SynthesizeSpeech"
+            ],
+            "Resource": [
+                "*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "dynamodb:Query",
+                "dynamodb:Scan",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem"
+            ],
+            "Resource": [
+                "arn:aws:dynamodb:us-west-2:570802417986:table/posts"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": [
+                "arn:aws:logs:us-west-2:570802417986:log-group:/aws/lambda/PostReader_*",
+                "arn:aws:logs:us-west-2:570802417986:log-group:/aws/lambda/ConvertToAudio*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "sns:Publish"
+            ],
+            "Resource": [
+                "arn:aws:sns:us-west-2:570802417986:new_posts"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "s3:PutObject",
+                "s3:PutObjectAcl",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": [
+                "arn:aws:s3:::audioposts-*",
+                "arn:aws:s3:::www-audioposts-*"
+            ],
+            "Effect": "Allow"
+        }
+    ]
+}
+```
+
+5. Now Create A Lambda function from scratch and use the following settings:
+	a. Function name: PostReader_NewPost
+	b. Runtime: Python 3.13
+	c. Expand Change default execution role
+	d. Execution role: Choose Use an existing role
+	e. Existing role: Choose CloudAge-Lambda-Role
+	f. Choose Create function.
+
+6. Delete the existing code and paste the following code:
+```
+import boto3
+import os
+import uuid
+
+def lambda_handler(event, context):
+
+    recordId = str(uuid.uuid4())
+    voice = event["voice"]
+    text = event["text"]
+
+    print('Generating new DynamoDB record, with ID: ' + recordId)
+    print('Input Text: ' + text)
+    print('Selected voice: ' + voice)
+
+    # Creating new record in DynamoDB table
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(os.environ['DB_TABLE_NAME'])
+    table.put_item(
+        Item={
+            'id' : recordId,
+            'text' : text,
+            'voice' : voice,
+            'status' : 'PROCESSING'
+        }
+    )
+
+    # Sending notification about new post to SNS
+    client = boto3.client('sns')
+    client.publish(
+        TopicArn = os.environ['SNS_TOPIC'],
+        Message = recordId
+    )
+
+    return recordId
+```
+
+7. Choose Deploy (Ctrl+Shift+U)
+
+8. Choose the Configuration tab & add environment variable:
+	a. Key: SNS_TOPIC ; Value: Paste the SNS topic ARN.
+	b. Key: DB_TABLE_NAME ; Value: posts
+	c. Save the Environment variables.
+
+9. In the General configuration section, choose Edit, & Update the Timeout to 10 seconds
+
+10.	Now Test The Function, Choose the Test tab and configure the following details:
+	a. Event name: Joanna
+	b. Delete the existing code and paste the following code:
+```
+	{
+  "voice": "Joanna",
+  "text": "This is working!"
+  }
+```
+  c. Click Test & Check Successful Execution Log.
+
+11. Create another Lambda function from scratch and use the following settings:
+	a. Function name: ConvertToAudio
+	b. Runtime: Python 3.13
+	c. Expand Change default execution role
+	d. Execution role: Choose Use an existing role
+	e. Existing role: Choose CloudAge-Lambda-Role
+	f. Choose Create function.
+
+12. Delete the existing code and paste the following code:
+```
+import boto3
+import os
+from contextlib import closing
+from boto3.dynamodb.conditions import Key, Attr
+
+def lambda_handler(event, context):
+
+    postId = event["Records"][0]["Sns"]["Message"]
+
+    print ("Text to Speech function. Post ID in DynamoDB: " + postId)
+
+    # Retrieving information about the post from DynamoDB table
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(os.environ['DB_TABLE_NAME'])
+    postItem = table.query(
+        KeyConditionExpression=Key('id').eq(postId)
+    )
+
+
+    text = postItem["Items"][0]["text"]
+    voice = postItem["Items"][0]["voice"]
+
+    rest = text
+
+    # Because single invocation of the polly synthesize_speech api can
+    # transform text with about 3000 characters, we are dividing the
+    # post into blocks of approximately 2500 characters.
+    textBlocks = []
+    while (len(rest) > 2600):
+        begin = 0
+        end = rest.find(".", 2500)
+
+        if (end == -1):
+            end = rest.find(" ", 2500)
+
+        textBlock = rest[begin:end]
+        rest = rest[end:]
+        textBlocks.append(textBlock)
+    textBlocks.append(rest)
+
+    # For each block, invoke Polly API, which transforms text into audio
+    polly = boto3.client('polly')
+    for textBlock in textBlocks:
+        response = polly.synthesize_speech(
+            OutputFormat='mp3',
+            Text = textBlock,
+            VoiceId = voice
+        )
+
+        # Save the audio stream returned by Amazon Polly on Lambda's temp
+        # directory. If there are multiple text blocks, the audio stream
+        # is combined into a single file.
+        if "AudioStream" in response:
+            with closing(response["AudioStream"]) as stream:
+                output = os.path.join("/tmp/", postId)
+                with open(output, "wb") as file:
+                    file.write(stream.read())
+
+    s3 = boto3.client('s3')
+    s3.upload_file('/tmp/' + postId,
+      os.environ['BUCKET_NAME'],
+      postId + ".mp3")
+    s3.put_object_acl(ACL='public-read',
+      Bucket=os.environ['BUCKET_NAME'],
+      Key= postId + ".mp3")
+
+    location = s3.get_bucket_location(Bucket=os.environ['BUCKET_NAME'])
+    region = location['LocationConstraint']
+
+    if region is None:
+        url_beginning = "https://s3.amazonaws.com/"
+    else:
+        url_beginning = "https://s3-" + str(region) + ".amazonaws.com/"
+
+    url = url_beginning \
+            + str(os.environ['BUCKET_NAME']) \
+            + "/" \
+            + str(postId) \
+            + ".mp3"
+
+    # Updating the item in DynamoDB
+    response = table.update_item(
+        Key={'id':postId},
+          UpdateExpression=
+            "SET #statusAtt = :statusValue, #urlAtt = :urlValue",
+          ExpressionAttributeValues=
+            {':statusValue': 'UPDATED', ':urlValue': url},
+        ExpressionAttributeNames=
+          {'#statusAtt': 'status', '#urlAtt': 'url'},
+    )
+
+    return
+```
+
+13. Choose Deploy (Ctrl+Shift+U)
+
+14. Add environment variable:
+	a. Key: DB_TABLE_NAME ; Value: arn:aws:dynamodb:us-east-1:706769905020:table/audio_post
+	b. Key: BUCKET_NAME ; Value: Enter the name of the bucket you created earlier.
+	   Note: It should look similar to: ml-polly-gen-ai
+	c.Save the Environment variables.
+
+15.	In the General configuration section, choose Edit, & Update the Timeout to 5 minutes.
+
+16.	In the Triggers section, choose + Add trigger and then configure:
+	a. Select a source: SNS
+	b. SNS topic: Select new_posts from available topics.
+	c. Choose Add.
+
+17. Create another Lambda function, and use the following settings:
+	a. Function name: PostReader_GetPost
+	b. Runtime: Python 3.13
+	c. Expand Change default execution role
+	d. Execution role: Choose Use an existing role
+	e. Existing role: Choose CloudAge-Lambda-Role
+	f. Choose Create function.
+
+18. Delete the existing code and paste the following code:
+```
+import boto3
+import os
+from boto3.dynamodb.conditions import Key, Attr
+
+def lambda_handler(event, context):
+
+    postId = event["postId"]
+
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(os.environ['DB_TABLE_NAME'])
+
+    if postId=="*":
+        items = table.scan()
+    else:
+        items = table.query(
+            KeyConditionExpression=Key('id').eq(postId)
+        )
+
+    return items["Items"]
+```
+
+19. Choose Deploy (Ctrl+Shift+U)
+
+20. Add environment variable:
+	a. Key: DB_TABLE_NAME ; Value: posts
+	b. Save the Environment variables.
+
+21. Now test the function. In the Test tab, create your test event using the following parameters:
+	a. Event Name: All Posts
+	b. Replace the existing code with the following code:
+```
+	{
+  "postId": "*"
+  }
+```
+Deploy 
+  c. Click Test & Check Successful Execution Log.
+
+22. Now Create REST API using the following parameters:
+	a. API name: PostReaderAPI
+	b. Endpoint Type: Regional
+	c. Choose Create API.
+
+23. Now inside create the POST method to invoke the PostReader_NewPost Lambda function.
+	a. In the Methods pane, choose Create method.
+	b. For Method type, choose POST.
+	c. For Lambda Function, choose that function that contains PostReader_NewPost in its name.
+	d. Choose Create method.
+
+24. In the Resources pane, choose the / icon, Create Method then add a GET method, the API invokes the PostReader_GetPost Lambda function.
+	a. In the Methods pane, choose Create method.
+	b. For Method type, choose GET.
+	c. For Lambda Function, choose that function that contains PostReader_GetPost in its name.
+	d. Choose Create method.
+
+25. In the Resources pane, choose the / icon above GET. In the Resource details pane, choose Enable CORS, choose following configuration:
+	a. For Gateway responses, choose Default 4XX and Default 5XX.
+	b. For Access-Control-Allow-Methods, choose GET and POST.
+	c. Choose Save.
+
+26. You now configure the GET method for a query parameter, postId, which provides information about the id of the post that should be returned.
+	a. Choose the GET method.
+	b. In the Method request settings pane, choose Edit.
+	c. Expand the URL query string parameters section.
+	d. Choose Add query string: postId.
+	e. Choose Save.
+
+27. The PostReader_GetPost Lambda function expects to receive input data in JSON format, so the API needs to be configured to map the parameter into this format. 
+    To do this, you can add mapping to the Integration Request configuration.
+	a. Choose the Integration request tab in GET Method.
+	b. In the Integration requests settings pane, choose Edit.
+	c. For Request body passthrough, choose When there are no templates defined (recommended).
+	d. Expand Mapping templates.
+	e. Choose Add mapping template.
+	f. For Content type, enter application/json
+	g. For Template body, enter:
+```
+{
+    "postId" : "$input.params('postId')"
+}
+```
+  h. Choose Save.
+
+28. Now Deploy The API.
+
+29. Create another S3 bucket and configure the following details:
+	a. Under Object Ownership, choose ACLs enabled
+	b. Under Block Public Access settings for this bucket deselect the Block all public access option
+	c. Choose Create bucket
+
+30. Paste this bucket policy into the editor:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PublicReadGetObject",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": [
+                "s3:GetObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::ml-polly-gen-ai/*"
+            ]
+        }
+    ]
+}
+```
+
+31. Choose Save changes.
+
+32. Open index.html & Change The API Gateway Invoke URL.
+e.g. https://rdqq6u0vza.execute-api.us-east-1.amazonaws.com/prod
+
+33. Upload index.html, & CloudAge-Logo.png
+
+34. Enable Static Web Hosting:
+	a. Go to the Properties tab.
+	b. Scroll down to the Static website hosting section and choose Edit.
+	c. Choose Enable for Static website hosting.
+	d. Index document: index.html
+	e. Error document: index.html
+	f. Choose Save changes.
+
+35. Now go to the S3 Web Hosting Endpoint URL.
+
+36. Select Voice Of: Joanna [English]
+
+37. In post ID enter ‘ * ‘ & click Search.
+
+38. Now if you write something in the text area and choose “Say it!”, it will generate a new voice clip.
+
+39. Congratulations! You Just Made An Amazing Text To Speech Agent.
