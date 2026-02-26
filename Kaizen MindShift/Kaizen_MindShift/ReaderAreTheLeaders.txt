@@ -1,0 +1,542 @@
+
+
+
+1. Upload Dockerfile.zip, requirements.txt & other files in an S3 bucket inside “code” folder
+
+2. Go To CodeBuild & Create A Project (Note: Create A ECR Repository First)
+
+3. Configuration As Follows:
+   - Project configuration: Only Provide Project Name
+   - Source: S3, code/Dockerfile.zip
+   - Environment:
+     - Service role: S3 Full Access & ECR Full Access
+     - Additional Configuration: Check Compute (2 vCPUs, 4 GiB memory) & Change Accordingly
+   - Buildspec: Insert Build Command > Switch To Editor, Paste The script provided below step 5.
+   - Batch configuration: Zero Changes
+   - Artifacts: No Artifacts & Zero Changes
+   - Logs: Zero Changes
+
+4. Start Build
+
+5. Once Finished Check ECR Repository > Image, Image Should Be Present Here.
+
+Buildspec Script:
+```
+{
+  "version": "0.2",
+  "phases": {
+    "pre_build": {
+      "commands": [
+        "echo 'Downloading container image from S3 bucket'",
+        "aws s3 sync s3://cloudage-docker-genai/code/ ./"
+      ]
+    },
+    "build": {
+      "commands": [
+        "echo 'Loading container image'",
+        "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 706769905020.dkr.ecr.us-east-1.amazonaws.com",
+        "docker build -t japan-kaizan .",
+        "echo 'Tagging and pushing container image to ECR'",
+        "docker tag japan-kaizan:latest 706769905020.dkr.ecr.us-east-1.amazonaws.com/japan-kaizan:latest",
+        "docker push 706769905020.dkr.ecr.us-east-1.amazonaws.com/japan-kaizan:latest"
+      ]
+    }
+  },
+  "artifacts": {
+    "base-directory": ".",
+    "files": [
+      "Dockerfile"
+    ]
+  }
+}
+```
+
+6. Create A VPC With 2 Public Subnets & 2 Private Subnets With 2 Nat GW & 1 S3 GW.
+
+7. Create Two Security Group:
+	a1. For Load Balancer: Inbound: Port 80, 22 & 443: All IP
+	a2. Outbound: All Traffic 0.0.0.0/
+	b1. For ECS: Inbound: Port 8501: Security group made in previous step.
+	b2. Outbound: All Traffic 0.0.0.0/
+	
+8. Create A VPC Endpoint
+	Click "Create Endpoint"
+	Service category: Select "AWS services"
+	Service name: Search and select com.amazonaws.us-east-1.ecr.api (Interface)
+	VPC: Choose your VPC
+	Subnets: Select your private subnets
+	Security groups: select a security group
+	Policy: Use "Full access" (default)
+	Enable "Private DNS name" ✓
+	Click "Create endpoint"
+
+9. Create Another ECR Docker Registry VPC Endpoint
+	Click "Create Endpoint" again
+	Service name: Select com.amazonaws.us-east-1.ecr.dkr (Interface)
+	Use same VPC and subnets as Step 2
+	Use same security group
+	Enable "Private DNS name" ✓
+	Click "Create endpoint"
+
+10. Create Another S3 Gateway VPC Endpoint
+	Create S3 Endpoint
+	Click "Create Endpoint"
+	Service name: Select com.amazonaws.us-east-1.s3 (Gateway)
+	VPC: Choose your VPC
+	Route tables: Select route tables associated with your private subnets
+	Policy: Use "Full access"
+	Click "Create endpoint"
+
+11. Start An EC2 Instance Provide IAM: Admin Full Access & Switch to Root User
+	Open the terminal and run:
+	sudo -i
+
+12. Do AWS Configure & Then Sync Files from S3
+	aws s3 sync s3://cloudage-docker-genai .
+	Make sure there’s a space and a dot (.) at the end of the command.
+
+13$. Edit Assignment Script
+	Open the assignment creation script:
+	nano pages/1_Create_Assignments.py
+
+	- Replace <model-id> on line 23 with the Nova Pro Model ID:
+	amazon.nova-pro-v1:0
+	- Replace <model-id> on line 24 with the Nova Pro Model ID:
+	amazon.nova-canvas-v1:0
+	- To save and exit: press Ctrl+Q, then press y.
+
+14$. Edit Parameter Store Script
+	Open the parameter store config:
+	nano components/Parameter_store.py
+	   
+	- Replace <put s3 bucket name here> with your actual bucket name.
+	- Save and exit: Ctrl+Q, then y.
+
+15. # Update system packages
+	sudo yum update -y
+	sudo yum install docker -y
+	sudo systemctl start docker
+	sudo systemctl enable docker
+	sudo usermod -a -G docker $USER
+	newgrp docker
+	docker --version
+
+16. Run ECR Push Commands
+	Run the four push commands you copied earlier, one by one:
+	<first-push-command>
+	<second-push-command>
+	<third-push-command>
+	<fourth-push-command>
+	Ensure each command completes successfully before moving on.
+   
+17. Create IP Based Target Group, For HTTP Port 80 (everything further is automatically done)
+
+18. Create Application Load Balancer in public subnet
+ (For HTTP Port 80), Connect With The Target Group,   
+
+19. Create A DynamoDB Table 1: Name: answers
+	Partition key: student_id (String)
+	Sort key: assignment_question_id (String)
+	Secondary Index:
+	  Partition Key: assignment_question_id (String)
+	  Sort Key: empty (do not enter empty)
+	  Name: assignment_question_id-index
+
+20. Create Another DynamoDB Table 2: Name: assignments
+	Partition key: teacher_id (String)
+	Sort key: assignment_id (String)
+			
+21. Create An ECS IAM (Provide Admin Access Or Bedrock, CloudWatch, S3, ECS, ECR Full Access)
+ECR Full Access Policy (JSON):
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ecr:*"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ecr:GetAuthorizationToken"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+		
+22. Create An ECS Cluster, Choose Fargate Only.
+			
+22. Create ECS Task definitions, With Following JSON using: ecs-task.json
+	Note: Change The "image" tag with your ecr image name.
+	Note: Change The "IAM Roles": executionRoleArn & taskRoleArn : Same IAM Role Made In Previous Step.
+			
+23. Inside ECS Cluster, Create A Service: Choose The Same Task Definition, Select Your VPC (Private Subnet), Add Load Balancer: Choose Your Target Group & Load Balancer, & Security Group.
+
+24. It Will Create The Service & Run The Task Inside The ECS Cluster.
+
+25. Once Task Is Active, Go To The DNS Name Provided In The Load Balancer.
+
+
+
+===========================================================
+
+Practice Guide: Deploying a Dockerized Application on AWS ECS
+This guide outlines the steps to build a Docker image, push it to ECR, and then deploy it to an AWS ECS Fargate cluster with a Load Balancer, VPC endpoints, and DynamoDB tables.
+
+Phase 1: Initial Setup & Image Preparation
+Prepare AWS ECR Repository:
+
+Create an ECR Repository. This is a prerequisite for CodeBuild to push your container image.
+Upload Source Files to S3:
+
+Upload Dockerfile.zip, requirements.txt, and any other necessary application files into an S3 bucket within a designated "code" folder (e.g., s3://your-bucket-name/code/).
+Configure AWS CodeBuild Project:
+
+Go to CodeBuild and create a new project.
+Project configuration: Provide a Project Name.
+Source: Select S3 and specify the path to your zipped Dockerfile: s3://your-bucket-name/code/Dockerfile.zip.
+Environment:
+Service role: Create or select a service role with S3 Full Access and ECR Full Access.
+Additional Configuration: Check Compute (e.g., 2 vCPUs, 4 GiB memory) and adjust as needed for your build.
+Buildspec: Switch to the Editor and paste the provided Buildspec script (from the original step 5).
+Batch configuration: Leave as default.
+Artifacts: Select No Artifacts.
+Logs: Leave as default.
+Start the CodeBuild Build:
+
+Initiate the build process for your newly configured CodeBuild project.
+Verify Image in ECR:
+
+Once the CodeBuild completes successfully, navigate to your ECR Repository and confirm that your container image is present.
+Phase 2: Network Infrastructure (VPC & Endpoints)
+Create a VPC and Subnets:
+
+Create a VPC with:
+2 Public Subnets
+2 Private Subnets
+Configure Network Gateways:
+
+Create 2 NAT Gateways (one for each public subnet, routing traffic from private subnets to the internet).
+Create 1 S3 Gateway Endpoint (this will be done in step 10, but conceptually it belongs here).
+Create Essential Security Groups:
+
+Load Balancer Security Group:
+Inbound: Allow Port 80, 22, and 443 from All IP addresses (0.0.0.0/0).
+Outbound: Allow All Traffic to 0.0.0.0/0.
+ECS Security Group:
+Inbound: Allow Port 8501 from the Load Balancer Security Group you just created.
+Outbound: Allow All Traffic to 0.0.0.0/0.
+Create VPC Endpoints for ECR:
+
+ECR API Endpoint (Interface):
+Click "Create Endpoint".
+Service category: Select "AWS services".
+Service name: Search for and select com.amazonaws.us-east-1.ecr.api.
+VPC: Choose your newly created VPC.
+Subnets: Select your private subnets.
+Security groups: Select the ECS security group.
+Policy: Use "Full access".
+Enable "Private DNS name".
+Click "Create endpoint".
+ECR Docker Endpoint (Interface):
+Click "Create Endpoint" again.
+Service name: Select com.amazonaws.us-east-1.ecr.dkr.
+Use the same VPC, private subnets, and ECS security group as the previous endpoint.
+Enable "Private DNS name".
+Click "Create endpoint".
+Create S3 Gateway VPC Endpoint:
+
+Click "Create Endpoint".
+Service name: Select com.amazonaws.us-east-1.s3.
+VPC: Choose your VPC.
+Route tables: Select the route tables associated with your private subnets.
+Policy: Use "Full access".
+Click "Create endpoint".
+Phase 3: Configuration & Deployment (EC2, DynamoDB, ECS)
+Launch & Configure an EC2 Instance (for initial configuration/testing):
+
+Launch an EC2 instance.
+Attach an IAM Role with Admin Full Access (or Bedrock, CloudWatch, S3, ECS, ECR Full Access).
+SSH into the instance.
+Switch to the root user: sudo -i.
+Configure AWS CLI & Sync Files on EC2:
+
+Run aws configure to set up AWS CLI credentials.
+Sync files from your S3 bucket to the EC2 instance: aws s3 sync s3://cloudage-docker-genai . (Ensure there’s a space and a dot . at the end of the command.)
+Edit Application Scripts (on EC2):
+
+Assignment Script:
+Open: nano pages/1_Create_Assignments.py.
+Replace <model-id> on line 23 with amazon.nova-pro-v1:0.
+Replace <model-id> on line 24 with amazon.nova-canvas-v1:0.
+Save and exit: Ctrl+Q, then y.
+Parameter Store Script:
+Open: nano components/Parameter_store.py.
+Replace <put s3 bucket name here> with your actual S3 bucket name.
+Save and exit: Ctrl+Q, then y.
+Update System & Install Docker (on EC2):
+
+sudo yum update -y
+sudo yum install docker -y
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -a -G docker $USER
+newgrp docker
+docker --version
+Push Docker Image (if not done via CodeBuild, or for manual testing on EC2):
+
+This step is usually redundant if CodeBuild was successful, but included for completeness or manual pushes.
+Run the four docker push commands you obtained earlier (e.g., from ECR console or CodeBuild logs), one by one.
+Ensure each command completes successfully.
+Create DynamoDB Tables:
+
+Table 1: answers
+Partition key: student_id (String)
+Sort key: assignment_question_id (String)
+Secondary Index:
+Partition Key: assignment_question_id (String)
+Sort Key: (empty - do not enter)
+Name: assignment_question_id-index
+Table 2: assignments
+Partition key: teacher_id (String)
+Sort key: assignment_id (String)
+Create ECS Execution/Task IAM Role:
+
+Create an IAM Role for ECS.
+Provide Admin Access or specific full access policies for: Bedrock, CloudWatch, S3, ECS, and ECR.
+ECR Full Access Policy (JSON example):
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ecr:*"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ecr:GetAuthorizationToken"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+Create an ECS Cluster:
+
+Create a new ECS Cluster.
+Choose the Fargate launch type only.
+Create ECS Task Definition:
+
+Create a new ECS Task Definition.
+Use the provided ecs-task.json structure.
+Important:
+Change the "image" tag to your ECR image name (e.g., 706769905020.dkr.ecr.us-east-1.amazonaws.com/japan-kaizan:latest).
+Set "executionRoleArn" and "taskRoleArn" to the ARN of the IAM Role created in step 7.
+Create IP-Based Target Group:
+
+Create a new Target Group.
+Select IP addresses as the target type.
+Set the protocol to HTTP and port to 80.
+Create Application Load Balancer:
+
+Create an Application Load Balancer (ALB).
+Place it in your public subnets.
+Configure a listener for HTTP on Port 80.
+Connect this listener to the Target Group created in the previous step.
+Create ECS Service within the Cluster:
+
+Inside your ECS Cluster, create a new Service.
+Select the Task Definition you created in step 9.
+Enable Load Balancing and choose your ALB.
+Select the Target Group you created.
+Choose your private subnets for the service.
+Associate the ECS Security Group created earlier.
+Phase 4: Verification
+Monitor ECS Service Deployment:
+
+The service will create and run tasks within the ECS Cluster. Monitor its status.
+Verify Application Access:
+
+Once a task is active and healthy, go to the DNS Name provided by the Application Load Balancer.
+Your application should be accessible.
+
+
+
+
+0 selected
+
+
+
+Done
+
+=======================================
+
+### **Phase 1: Setup Core AWS Resources**
+
+1.  **Create an ECR Repository:** This is where your Docker images will be stored.
+2.  **Create a VPC:**
+    *   2 Public Subnets
+    *   2 Private Subnets
+    *   2 NAT Gateways
+    *   1 S3 Gateway
+3.  **Create Security Groups:**
+    *   **For Load Balancer:**
+        *   Inbound: Ports 80, 22, 443 from all IP addresses (`0.0.0.0/0`).
+        *   Outbound: All Traffic (`0.0.0.0/0`).
+    *   **For ECS:**
+        *   Inbound: Port 8501 from the Load Balancer Security Group.
+        *   Outbound: All Traffic (`0.0.0.0/0`).
+4.  **Create VPC Endpoints:**
+    *   **ECR API Endpoint:**
+        *   Service: `com.amazonaws.us-east-1.ecr.api` (Interface)
+        *   VPC: Your VPC
+        *   Subnets: Your Private Subnets
+        *   Security Group: An appropriate security group (e.g., your ECS security group)
+        *   Policy: Full access
+        *   Enable Private DNS name.
+    *   **ECR Docker Registry Endpoint:**
+        *   Service: `com.amazonaws.us-east-1.ecr.dkr` (Interface)
+        *   Use the same VPC, Subnets, and Security Group as the ECR API Endpoint.
+        *   Enable Private DNS name.
+    *   **S3 Gateway Endpoint:**
+        *   Service: `com.amazonaws.us-east-1.s3` (Gateway)
+        *   VPC: Your VPC
+        *   Route Tables: Associated with your Private Subnets
+        *   Policy: Full access
+5.  **Create DynamoDB Tables:**
+    *   **Table 1: `answers`**
+        *   Partition Key: `student_id` (String)
+        *   Sort Key: `assignment_question_id` (String)
+        *   Secondary Index: `assignment_question_id-index`
+            *   Partition Key: `assignment_question_id` (String)
+            *   Sort Key: (leave empty)
+    *   **Table 2: `assignments`**
+        *   Partition Key: `teacher_id` (String)
+        *   Sort Key: `assignment_id` (String)
+
+### **Phase 2: Prepare Your Docker Image with CodeBuild**
+
+1.  **Upload Files to S3:**
+    *   Place `Dockerfile.zip`, `requirements.txt`, and any other necessary files into a designated "code" folder within an S3 bucket (e.g., `s3://your-bucket-name/code/`).
+2.  **Create a CodeBuild Project:**
+    *   **Project configuration:** Provide a Project Name.
+    *   **Source:** S3, pointing to `your-bucket-name/code/Dockerfile.zip`.
+    *   **Environment:**
+        *   Service role: Ensure it has S3 Full Access and ECR Full Access.
+        *   Additional Configuration: Adjust Compute (e.g., 2 vCPUs, 4 GiB memory) as needed.
+    *   **Buildspec:** Switch to the editor and paste the provided Buildspec script:
+        ```json
+        {
+          "version": "0.2",
+          "phases": {
+            "pre_build": {
+              "commands": [
+                "echo 'Downloading container image from S3 bucket'",
+                "aws s3 sync s3://cloudage-docker-genai/code/ ./"
+              ]
+            },
+            "build": {
+              "commands": [
+                "echo 'Loading container image'",
+                "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 706769905020.dkr.ecr.us-east-1.amazonaws.com",
+                "docker build -t japan-kaizan .",
+                "echo 'Tagging and pushing container image to ECR'",
+                "docker tag japan-kaizan:latest 706769905020.dkr.ecr.us-east-1.amazonaws.com/japan-kaizan:latest",
+                "docker push 706769905020.dkr.ecr.us-east-1.amazonaws.com/japan-kaizan:latest"
+              ]
+            }
+          },
+          "artifacts": {
+            "base-directory": ".",
+            "files": [
+              "Dockerfile"
+            ]
+          }
+        }
+        ```
+    *   **Batch configuration:** Zero Changes.
+    *   **Artifacts:** No Artifacts & Zero Changes.
+    *   **Logs:** Zero Changes.
+3.  **Start the CodeBuild Build:** Initiate the build process.
+4.  **Verify ECR Image:** Once the build is finished, check your ECR Repository; the Docker image should now be present.
+
+### **Phase 3: Configure ECS and Load Balancing**
+
+1.  **Create an ECS IAM Role:**
+    *   Provide `Admin Access` or specific policies for `Bedrock`, `CloudWatch`, `S3`, `ECS`, and `ECR Full Access`.
+    *   **ECR Full Access Policy (JSON):**
+        ```json
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "ecr:*"
+                    ],
+                    "Resource": "*"
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "ecr:GetAuthorizationToken"
+                    ],
+                    "Resource": "*"
+                }
+            ]
+        }
+        ```
+2.  **Create an ECS Cluster:** Choose "Fargate Only".
+3.  **Create an ECS Task Definition:**
+    *   Use the `ecs-task.json` template.
+    *   **Important:**
+        *   Change the `"image"` tag to your ECR image name.
+        *   Set `"executionRoleArn"` and `"taskRoleArn"` to the ECS IAM Role created in the previous step.
+4.  **Create an IP-Based Target Group:** For HTTP Port 80.
+5.  **Create an Application Load Balancer:**
+    *   Deploy in your public subnets.
+    *   Listen on HTTP Port 80.
+    *   Connect it to the Target Group you just created.
+6.  **Create an ECS Service:**
+    *   Inside your ECS Cluster, choose the same Task Definition.
+    *   Select your VPC (private subnets).
+    *   Add Load Balancer: Choose your Target Group and Load Balancer.
+    *   Select your ECS Security Group.
+7.  **Monitor ECS Service and Task:** The service will be created, and tasks will run within the ECS Cluster.
+8.  **Access Application:** Once the task is active, go to the DNS Name provided in the Load Balancer to access your application.
+
+### **Phase 4: Local Configuration (EC2 Instance - Optional, for file modification practice)**
+
+1.  **Launch an EC2 Instance:**
+    *   Provide Admin Full Access IAM role.
+    *   Switch to the root user: `sudo -i`.
+2.  **Configure AWS & Sync Files from S3:**
+    *   `aws configure`
+    *   `aws s3 sync s3://cloudage-docker-genai .` (Ensure the space and dot at the end).
+3.  **Edit Assignment Script:**
+    *   Open `nano pages/1_Create_Assignments.py`.
+    *   Replace `<model-id>` on line 23 with `amazon.nova-pro-v1:0`.
+    *   Replace `<model-id>` on line 24 with `amazon.nova-canvas-v1:0`.
+    *   Save and exit (Ctrl+Q, then y).
+4.  **Edit Parameter Store Script:**
+    *   Open `nano components/Parameter_store.py`.
+    *   Replace `<put s3 bucket name here>` with your actual S3 bucket name.
+    *   Save and exit (Ctrl+Q, then y).
+5.  **Update System Packages & Install Docker:**
+    *   `sudo yum update -y`
+    *   `sudo yum install docker -y`
+    *   `sudo systemctl start docker`
+    *   `sudo systemctl enable docker`
+    *   `sudo usermod -a -G docker $USER`
+    *   `newgrp docker`
+    *   `docker --version`
+6.  **Run ECR Push Commands:** Execute the four docker push commands that you would have copied (these are typically from your local development environment after building an image). Ensure each completes successfully.
